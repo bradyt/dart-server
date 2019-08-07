@@ -64,10 +64,10 @@
 
 ;;; Commentary:
 
-;; Major mode for editing Dart files.
+;; Minor mode for editing Dart files.
 
-;; Provides basic syntax highlighting and indentation. Also provides
-;; formatting via the dartfmt and diff executables.
+;; Provides dart server features, such as formatting, analysis,
+;; flycheck, etc.
 
 ;;; Code:
 
