@@ -861,7 +861,7 @@ minibuffer."
                  (location (dart--get result 'element 'location)))
              (dart--display-search-results
               (dart--get result 'id)
-              (lambda () 
+              (lambda ()
                 (setq dart--do-it-again-callback
                       (lambda ()
                         (with-current-buffer buffer
@@ -1158,7 +1158,7 @@ This will select the first parameter, if one exists."
 
     ;; If this is called directly after `dart-expand', create the parameter list
     ;; and highlight the first entry.
-    (setq dart--last-expand-parameters-index 0)    
+    (setq dart--last-expand-parameters-index 0)
     (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
         ((parameter-names parameterNames)
          (argument-string defaultArgumentListString)
@@ -1204,10 +1204,10 @@ This will select the first parameter, if one exists."
 
   (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
       ((parameter-names parameterNames)
-       (parameter-types parameterTypes))        
-    (message "%s" (dart--highlight-description 
+       (parameter-types parameterTypes))
+    (message "%s" (dart--highlight-description
                    (concat (elt parameter-types dart--last-expand-parameters-index) " "
-                           (elt parameter-names dart--last-expand-parameters-index))))))  
+                           (elt parameter-names dart--last-expand-parameters-index))))))
 
 (defun dart--delsel-range (beginning end)
   "Highlights the range between BEGINNING and END and enables `delete-selection-mode' temporarily."
