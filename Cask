@@ -1,6 +1,7 @@
 (source gnu)
 (source melpa)
 
-(package-file "dart-mode.el")
+(package-file "dart-server.el")
 
-(depends-on "ert-runner")
+(depends-on "dash")
+(depends-on "s")
