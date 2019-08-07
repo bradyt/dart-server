@@ -1,9 +1,9 @@
-;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
+;;; dart-server.el --- Minor mode for editing Dart files -*- lexical-binding: t; -*-
 
 ;; Author: Natalie Weizenbaum
 ;;      Brady Trainor <mail@bradyt.com>
 ;; Maintainer: Brady Trainor <mail@bradyt.com>
-;; URL: https://github.com/bradyt/dart-mode
+;; URL: https://github.com/bradyt/dart-server
 ;; Version: 1.0.4
 ;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.10"))
 ;; Keywords: languages
@@ -220,7 +220,7 @@ rather than Elisp."
 Assigns the filename to NAME-VARIABLE. Doesn't change the current buffer.
 Returns the value of the last form in BODY."
   (declare (indent 1))
-  `(-let [,name-variable (make-temp-file "dart-mode.")]
+  `(-let [,name-variable (make-temp-file "dart-server.")]
      (unwind-protect
          (progn ,@body)
        (delete-file ,name-variable))))
@@ -276,9 +276,9 @@ Only set in `dart-popup-mode'.")
          (directory-file-name
           (file-name-directory (string-trim result)))))))
   "The absolute path to the root of the Dart SDK."
-  :group 'dart-mode
+  :group 'dart-server
   :type 'directory
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-server . "1.0.0"))
 
 (defun dart-executable-path ()
   "The absolute path to the 'dart' executable.
@@ -294,17 +294,17 @@ Returns nil if `dart-sdk-path' is nil."
 
 ;;; Configuration
 
-(defvar dart-mode-map (make-sparse-keymap)
-  "Keymap used in dart-mode buffers.")
-(define-key dart-mode-map (kbd "C-c ?") 'dart-show-hover)
-(define-key dart-mode-map (kbd "C-c C-g") 'dart-goto)
-(define-key dart-mode-map (kbd "C-c C-f") 'dart-find-refs)
-(define-key dart-mode-map (kbd "C-c C-e") 'dart-find-member-decls)
-(define-key dart-mode-map (kbd "C-c C-r") 'dart-find-member-refs)
-(define-key dart-mode-map (kbd "C-c C-t") 'dart-find-top-level-decls)
-(define-key dart-mode-map (kbd "C-c C-o") 'dart-format)
-(define-key dart-mode-map (kbd "M-/") 'dart-expand)
-(define-key dart-mode-map (kbd "M-?") 'dart-expand-parameters)
+(defvar dart-server-map (make-sparse-keymap)
+  "Keymap used in dart-server buffers.")
+(define-key dart-server-map (kbd "C-c ?") 'dart-show-hover)
+(define-key dart-server-map (kbd "C-c C-g") 'dart-goto)
+(define-key dart-server-map (kbd "C-c C-f") 'dart-find-refs)
+(define-key dart-server-map (kbd "C-c C-e") 'dart-find-member-decls)
+(define-key dart-server-map (kbd "C-c C-r") 'dart-find-member-refs)
+(define-key dart-server-map (kbd "C-c C-t") 'dart-find-top-level-decls)
+(define-key dart-server-map (kbd "C-c C-o") 'dart-format)
+(define-key dart-server-map (kbd "M-/") 'dart-expand)
+(define-key dart-server-map (kbd "M-?") 'dart-expand-parameters)
 
 
 ;;; Dart analysis server
@@ -319,21 +319,21 @@ The slots are:
 - `buffer': the buffer where responses from the server are written."
   process buffer)
 
-(defgroup dart-mode nil
+(defgroup dart-server nil
   "Major mode for editing Dart code."
   :group 'languages)
 
 (defvar dart-debug nil
-  "If non-nil, enables writing debug messages for dart-mode.")
+  "If non-nil, enables writing debug messages for dart-server.")
 
 (defcustom dart-enable-analysis-server nil
   "If non-nil, enables support for Dart analysis server.
 
 The Dart analysis server adds support for error checking, code completion,
 navigation, and more."
-  :group 'dart-mode
+  :group 'dart-server
   :type 'boolean
-  :package-version '(dart-mode . "0.12"))
+  :package-version '(dart-server . "0.12"))
 
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
@@ -409,7 +409,7 @@ directory or the current file directory to the analysis roots."
 (defun dart-start-analysis-server ()
   "Start the Dart analysis server.
 
-Initializes analysis server support for all `dart-mode' buffers."
+Initializes analysis server support for all `dart-server' buffers."
   (when dart--analysis-server
     (-let [process (dart--analysis-server-process dart--analysis-server)]
       (when (process-live-p process) (kill-process process)))
@@ -427,7 +427,7 @@ Initializes analysis server support for all `dart-mode' buffers."
 
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer
-      (when (eq major-mode 'dart-mode)
+      (when (bound-and-true-p dart-server)
         (dart--start-analysis-server-for-current-buffer)
         (when (buffer-modified-p buffer) (dart-add-analysis-overlay))))))
 
@@ -651,7 +651,7 @@ SUBSCRIPTION is an opaque object provided by
   'dart-analysis-server
   "Checks Dart source code for errors using Dart analysis server."
   :start 'dart--flycheck-start
-  :modes '(dart-mode)))
+  :modes '(dart-server)))
 
 (defun dart--report-errors (response buffer callback)
   "Report the errors returned from the analysis server.
@@ -987,9 +987,9 @@ to add a header and otherwise prepare it for displaying results."
 
 This is used when the analysis server isn't available. It
 defaults to the command globally bound to M-/."
-  :group 'dart-mode
+  :group 'dart-server
   :type 'function
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-server . "1.0.0"))
 
 (defvar dart--last-expand-results nil
   "The results of the last call to `dart-expand'.")
@@ -1279,20 +1279,20 @@ Also removes this function from `post-command-hook'."
 
 Don't read this variable; call `dart-formatter-command' instead."
   :type 'string
-  :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :group 'dart-server
+  :package-version '(dart-server . "1.0.0"))
 
 (defcustom dart-formatter-line-length 80
   "The line length to use when running the Dart formatter."
   :type 'integer
-  :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :group 'dart-server
+  :package-version '(dart-server . "1.0.0"))
 
 (defcustom dart-format-on-save nil
   "Whether to run the Dart formatter before saving."
   :type 'boolean
-  :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :group 'dart-server
+  :package-version '(dart-server . "1.0.0"))
 
 (defcustom dart-formatter-show-errors 'buffer
   "Where to display Dart formatter error output.
@@ -1305,7 +1305,7 @@ inside a `before-save-hook'."
           (const :tag "Own buffer" buffer)
           (const :tag "Echo area" echo)
           (const :tag "None" nil))
-  :group 'dart-mode)
+  :group 'dart-server)
 
 (defun dart-formatter-command ()
   "The command for running the Dart formatter.
@@ -1435,26 +1435,9 @@ This replaces references to TEMP-FILE with REAL-FILE."
 
 ;;; Initialization
 
-;;;###autoload (add-to-list 'auto-mode-alist '("\\.dart\\'" . dart-mode))
-
 ;;;###autoload
-(define-derived-mode dart-mode prog-mode "Dart"
-  "Major mode for editing Dart files.
+(define-minor-mode dart-server nil)
 
-The hook `dart-mode-hook' is run with no args at mode
-initialization.
+(provide 'dart-server)
 
-Key bindings:
-\\{dart-mode-map}"
-  (when dart-enable-analysis-server
-    (if (null dart-sdk-path)
-        (dart-log
-         "Cannot find `dart' executable or Dart analysis server snapshot.")
-      (dart--start-analysis-server-for-current-buffer)))
-
-  (add-hook (make-local-variable 'before-save-hook)
-            (lambda () (when dart-format-on-save (dart-format)))))
-
-(provide 'dart-mode)
-
-;;; dart-mode.el ends here
+;;; dart-server.el ends here
