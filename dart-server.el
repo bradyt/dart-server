@@ -400,9 +400,9 @@ directory or the current file directory to the analysis roots."
   (unless dart-server--analysis-server (dart-server-start-analysis-server))
   ;; TODO(hterkelsen): Add this file to the priority files.
   (dart-server-add-analysis-root-for-file)
-  (add-hook 'first-change-hook 'dart-server-add-analysis-overlay t t)
-  (add-hook 'after-change-functions 'dart-server-change-analysis-overlay t t)
-  (add-hook 'after-save-hook 'dart-server-remove-analysis-overlay t t)
+  (add-hook 'first-change-hook #'dart-server-add-analysis-overlay t t)
+  (add-hook 'after-change-functions #'dart-server-change-analysis-overlay t t)
+  (add-hook 'after-save-hook #'dart-server-remove-analysis-overlay t t)
   (when (boundp 'flycheck-checkers)
     (add-to-list 'flycheck-checkers 'dart-server-analysis-server)))
 
