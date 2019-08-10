@@ -1228,7 +1228,7 @@ This will select the first parameter, if one exists."
      ;; delete-selection-mode.
      (unless delete-selection-mode
        (delete-selection-mode 1)
-       (add-hook 'post-command-hook 'dart-server--disable-delsel t t)))))
+       (add-hook 'post-command-hook #'dart-server--disable-delsel t t)))))
 
 (defun dart-server--disable-delsel ()
   "Disables `delete-selection-mode' and deactivates the mark.
