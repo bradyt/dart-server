@@ -294,17 +294,18 @@ Returns nil if `dart-server-sdk-path' is nil."
 
 ;;; Configuration
 
-(defvar dart-server-map (make-sparse-keymap)
+(defvar dart-server-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c ?") 'dart-server-show-hover)
+    ;; (define-key map (kbd "C-c C-g") 'dart-server-goto)
+    (define-key map (kbd "C-c C-f") 'dart-server-find-refs)
+    (define-key map (kbd "C-c C-e") 'dart-server-find-member-decls)
+    (define-key map (kbd "C-c C-r") 'dart-server-find-member-refs)
+    (define-key map (kbd "C-c C-t") 'dart-server-find-top-level-decls)
+    (define-key map (kbd "C-c C-o") 'dart-server-format)
+    (define-key map (kbd "M-/") 'dart-server-expand)
+    (define-key map (kbd "M-?") 'dart-server-expand-parameters))
   "Keymap used in dart-server buffers.")
-(define-key dart-server-map (kbd "C-c ?") 'dart-server-show-hover)
-;; (define-key dart-server-map (kbd "C-c C-g") 'dart-server-goto)
-(define-key dart-server-map (kbd "C-c C-f") 'dart-server-find-refs)
-(define-key dart-server-map (kbd "C-c C-e") 'dart-server-find-member-decls)
-(define-key dart-server-map (kbd "C-c C-r") 'dart-server-find-member-refs)
-(define-key dart-server-map (kbd "C-c C-t") 'dart-server-find-top-level-decls)
-(define-key dart-server-map (kbd "C-c C-o") 'dart-server-format)
-(define-key dart-server-map (kbd "M-/") 'dart-server-expand)
-(define-key dart-server-map (kbd "M-?") 'dart-server-expand-parameters)
 
 
 ;;; Dart analysis server
@@ -1248,22 +1249,21 @@ Also removes this function from `post-command-hook'."
 
 (put 'dart-server-popup-mode 'mode-class 'special)
 
-(defvar dart-server-popup-mode-map (make-sparse-keymap)
+(defvar dart-server-popup-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map help-mode-map)
+    (define-key map (kbd "g") 'dart-server-do-it-again)
+    ;; Unbind help-specific keys.
+    (define-key map (kbd "RET") nil)
+    (define-key map (kbd "l") nil)
+    (define-key map (kbd "r") nil)
+    (define-key map (kbd "<XF86Back>") nil)
+    (define-key map (kbd "<XF86Forward>") nil)
+    (define-key map (kbd "<mouse-2>") nil)
+    (define-key map (kbd "C-c C-b") nil)
+    (define-key map (kbd "C-c C-c") nil)
+    (define-key map (kbd "C-c C-f") nil))
   "Keymap used in Dart popup buffers.")
-(set-keymap-parent dart-server-popup-mode-map help-mode-map)
-
-(define-key dart-server-popup-mode-map (kbd "g") 'dart-server-do-it-again)
-
-;; Unbind help-specific keys.
-(define-key dart-server-popup-mode-map (kbd "RET") nil)
-(define-key dart-server-popup-mode-map (kbd "l") nil)
-(define-key dart-server-popup-mode-map (kbd "r") nil)
-(define-key dart-server-popup-mode-map (kbd "<XF86Back>") nil)
-(define-key dart-server-popup-mode-map (kbd "<XF86Forward>") nil)
-(define-key dart-server-popup-mode-map (kbd "<mouse-2>") nil)
-(define-key dart-server-popup-mode-map (kbd "C-c C-b") nil)
-(define-key dart-server-popup-mode-map (kbd "C-c C-c") nil)
-(define-key dart-server-popup-mode-map (kbd "C-c C-f") nil)
 
 (defun dart-server-do-it-again ()
   "Re-runs the logic that generated the current buffer."
