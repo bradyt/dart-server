@@ -297,7 +297,7 @@ Returns nil if `dart-server-sdk-path' is nil."
 (defvar dart-server-map (make-sparse-keymap)
   "Keymap used in dart-server buffers.")
 (define-key dart-server-map (kbd "C-c ?") 'dart-server-show-hover)
-(define-key dart-server-map (kbd "C-c C-g") 'dart-server-goto)
+;; (define-key dart-server-map (kbd "C-c C-g") 'dart-server-goto)
 (define-key dart-server-map (kbd "C-c C-f") 'dart-server-find-refs)
 (define-key dart-server-map (kbd "C-c C-e") 'dart-server-find-member-decls)
 (define-key dart-server-map (kbd "C-c C-r") 'dart-server-find-member-refs)
