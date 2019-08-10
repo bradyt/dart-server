@@ -84,7 +84,7 @@
 
 ;;; Utility functions and macros
 
-(defun dart-beginning-of-statement ()
+(defun dart-server-beginning-of-statement ()
   "Moves to the beginning of a Dart statement.
 
 Unlike `c-beginning-of-statement', this handles maps correctly
@@ -96,9 +96,9 @@ and will move to the top level of a bracketed statement."
           (forward-char)
           (forward-sexp -1)
           (back-to-indentation))
-        (when (not (dart--beginning-of-statement-p)) (forward-line -1)))))
+        (when (not (dart-server--beginning-of-statement-p)) (forward-line -1)))))
 
-(defun dart--beginning-of-statement-p ()
+(defun dart-server--beginning-of-statement-p ()
   "Returns whether the point is at the beginning of a statement.
 
 Statements are assumed to begin on their own lines. This returns
@@ -116,7 +116,7 @@ true for positions before the start of the statement, but on its line."
        (cl-case (char-before)
          ((?} ?\;) t))))))
 
-(defun dart--delete-whole-line (&optional arg)
+(defun dart-server--delete-whole-line (&optional arg)
   "Delete the current line without putting it in the `kill-ring'.
 Derived from function `kill-whole-line'.  ARG is defined as for that
 function."
@@ -142,16 +142,16 @@ function."
          (delete-region (progn (forward-visible-line 0) (point))
                         (progn (forward-visible-line arg) (point))))))
 
-(defconst dart--identifier-re
+(defconst dart-server--identifier-re
   "[a-zA-Z_$][a-zA-Z0-9_$]*"
   "A regular expression that matches keywords.")
 
-(defun dart--forward-identifier ()
+(defun dart-server--forward-identifier ()
   "Moves the point forward through a Dart identifier."
-  (when (looking-at dart--identifier-re)
+  (when (looking-at dart-server--identifier-re)
     (goto-char (match-end 0))))
 
-(defun dart--kill-buffer-and-window (buffer)
+(defun dart-server--kill-buffer-and-window (buffer)
   "Kills BUFFER, and its window if it has one.
 
 This is different than `kill-buffer' because, if the buffer has a
@@ -161,25 +161,25 @@ window, it respects the `quit-restore' window parameter. See
       (quit-window t window)
     (kill-buffer buffer)))
 
-(defun dart--get (alist &rest keys)
+(defun dart-server--get (alist &rest keys)
   "Recursively calls `cdr' and `assoc' on ALIST with KEYS.
 Returns the value rather than the full alist cell."
   (--reduce-from (cdr (assoc it acc)) alist keys))
 
-(defmacro dart--json-let (json fields &rest body)
+(defmacro dart-server--json-let (json fields &rest body)
   "Assigns variables named FIELDS to the corresponding fields in JSON.
 FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
   (declare (indent 2))
   (let ((json-value (make-symbol "json")))
     `(let ((,json-value ,json))
        (let ,(--map (if (symbolp it)
-                        `(,it (dart--get ,json-value ',it))
+                        `(,it (dart-server--get ,json-value ',it))
                       (-let [(variable key) it]
-                        `(,variable (dart--get ,json-value ',key))))
+                        `(,variable (dart-server--get ,json-value ',key))))
                     fields)
          ,@body))))
 
-(defun dart--property-string (text prop value)
+(defun dart-server--property-string (text prop value)
   "Returns a copy of TEXT with PROP set to VALUE.
 
 Converts TEXT to a string if it's not already."
@@ -187,13 +187,13 @@ Converts TEXT to a string if it's not already."
     (put-text-property 0 (length copy) prop value copy)
     copy))
 
-(defun dart--face-string (text face)
+(defun dart-server--face-string (text face)
   "Returns a copy of TEXT with its font face set to FACE.
 
 Converts TEXT to a string if it's not already."
-  (dart--property-string text 'face face))
+  (dart-server--property-string text 'face face))
 
-(defmacro dart--fontify-excursion (face &rest body)
+(defmacro dart-server--fontify-excursion (face &rest body)
   "Applies FACE to the region moved over by BODY."
   (declare (indent 1))
   (-let [start (make-symbol "start")]
@@ -201,7 +201,7 @@ Converts TEXT to a string if it's not already."
        ,@body
        (put-text-property ,start (point) 'face ,face))))
 
-(defun dart--flash-highlight (offset length)
+(defun dart-server--flash-highlight (offset length)
   "Briefly highlights the text defined by OFFSET and LENGTH.
 OFFSET and LENGTH are expected to come from the analysis server,
 rather than Elisp."
@@ -209,13 +209,13 @@ rather than Elisp."
     (overlay-put overlay 'face 'highlight)
     (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
 
-(defun dart--read-file (filename)
+(defun dart-server--read-file (filename)
   "Returns the contents of FILENAME."
   (with-temp-buffer
     (insert-file-contents filename)
     (buffer-string)))
 
-(defmacro dart--with-temp-file (name-variable &rest body)
+(defmacro dart-server--with-temp-file (name-variable &rest body)
   "Creates a temporary file for the duration of BODY.
 Assigns the filename to NAME-VARIABLE. Doesn't change the current buffer.
 Returns the value of the last form in BODY."
@@ -225,37 +225,37 @@ Returns the value of the last form in BODY."
          (progn ,@body)
        (delete-file ,name-variable))))
 
-(defun dart--run-process (executable &rest args)
+(defun dart-server--run-process (executable &rest args)
   "Runs EXECUTABLE with ARGS synchronously.
 Returns (STDOUT STDERR EXIT-CODE)."
-  (dart--with-temp-file stderr-file
+  (dart-server--with-temp-file stderr-file
     (with-temp-buffer
       (-let [exit-code
              (apply #'call-process
                     executable nil (list t stderr-file) nil args)]
         (list
          (buffer-string)
-         (dart--read-file stderr-file)
+         (dart-server--read-file stderr-file)
          exit-code)))))
 
-(defun dart--try-process (executable &rest args)
-  "Like `dart--run-process', but only returns stdout.
-Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
-  (-let [result (apply #'dart--run-process executable args)]
+(defun dart-server--try-process (executable &rest args)
+  "Like `dart-server--run-process', but only returns stdout.
+Any stderr is logged using dart-server-log. Returns nil if the exit code is non-0."
+  (-let [result (apply #'dart-server--run-process executable args)]
     (unless (string-empty-p (nth 1 result))
-      (dart-log (format "Error running %S:\n%s" (cons executable args) (nth 1 result))))
+      (dart-server-log (format "Error running %S:\n%s" (cons executable args) (nth 1 result))))
     (if (eq (nth 2 result) 0) (nth 0 result))))
 
-(defvar dart--do-it-again-callback nil
-  "A callback to call when `dart-do-it-again' is invoked.
+(defvar dart-server--do-it-again-callback nil
+  "A callback to call when `dart-server-do-it-again' is invoked.
 
-Only set in `dart-popup-mode'.")
-(make-variable-buffer-local 'dart--do-it-again-callback)
+Only set in `dart-server-popup-mode'.")
+(make-variable-buffer-local 'dart-server--do-it-again-callback)
 
 
 ;;; General configuration
 
-(defcustom dart-sdk-path
+(defcustom dart-server-sdk-path
   ;; Use Platform.resolvedExecutable so that this logic works through symlinks
   ;; and wrapper scripts.
   (-when-let (dart (or (executable-find "dart")
@@ -263,7 +263,7 @@ Only set in `dart-popup-mode'.")
                          (when flutter
                            (expand-file-name "cache/dart-sdk/bin/dart"
                                              (file-name-directory flutter))))))
-    (dart--with-temp-file input
+    (dart-server--with-temp-file input
       (with-temp-file input (insert "
         import 'dart:io';
 
@@ -271,7 +271,7 @@ Only set in `dart-popup-mode'.")
           print(Platform.resolvedExecutable);
         }
         "))
-      (-when-let (result (dart--try-process dart input))
+      (-when-let (result (dart-server--try-process dart input))
         (file-name-directory
          (directory-file-name
           (file-name-directory (string-trim result)))))))
@@ -280,12 +280,12 @@ Only set in `dart-popup-mode'.")
   :type 'directory
   :package-version '(dart-server . "0.1.0"))
 
-(defun dart-executable-path ()
+(defun dart-server-executable-path ()
   "The absolute path to the 'dart' executable.
 
-Returns nil if `dart-sdk-path' is nil."
-  (when dart-sdk-path
-    (concat dart-sdk-path
+Returns nil if `dart-server-sdk-path' is nil."
+  (when dart-server-sdk-path
+    (concat dart-server-sdk-path
             (file-name-as-directory "bin")
             (if (memq system-type '(ms-dos windows-nt))
                 "dart.exe"
@@ -296,22 +296,22 @@ Returns nil if `dart-sdk-path' is nil."
 
 (defvar dart-server-map (make-sparse-keymap)
   "Keymap used in dart-server buffers.")
-(define-key dart-server-map (kbd "C-c ?") 'dart-show-hover)
-(define-key dart-server-map (kbd "C-c C-g") 'dart-goto)
-(define-key dart-server-map (kbd "C-c C-f") 'dart-find-refs)
-(define-key dart-server-map (kbd "C-c C-e") 'dart-find-member-decls)
-(define-key dart-server-map (kbd "C-c C-r") 'dart-find-member-refs)
-(define-key dart-server-map (kbd "C-c C-t") 'dart-find-top-level-decls)
-(define-key dart-server-map (kbd "C-c C-o") 'dart-format)
-(define-key dart-server-map (kbd "M-/") 'dart-expand)
-(define-key dart-server-map (kbd "M-?") 'dart-expand-parameters)
+(define-key dart-server-map (kbd "C-c ?") 'dart-server-show-hover)
+(define-key dart-server-map (kbd "C-c C-g") 'dart-server-goto)
+(define-key dart-server-map (kbd "C-c C-f") 'dart-server-find-refs)
+(define-key dart-server-map (kbd "C-c C-e") 'dart-server-find-member-decls)
+(define-key dart-server-map (kbd "C-c C-r") 'dart-server-find-member-refs)
+(define-key dart-server-map (kbd "C-c C-t") 'dart-server-find-top-level-decls)
+(define-key dart-server-map (kbd "C-c C-o") 'dart-server-format)
+(define-key dart-server-map (kbd "M-/") 'dart-server-expand)
+(define-key dart-server-map (kbd "M-?") 'dart-server-expand-parameters)
 
 
 ;;; Dart analysis server
 
 (cl-defstruct
-    (dart--analysis-server
-     (:constructor dart--make-analysis-server))
+    (dart-server--analysis-server
+     (:constructor dart-server--make-analysis-server))
   "Struct containing data for an instance of a Dart analysis server.
 
 The slots are:
@@ -323,10 +323,10 @@ The slots are:
   "Major mode for editing Dart code."
   :group 'languages)
 
-(defvar dart-debug nil
+(defvar dart-server-debug nil
   "If non-nil, enables writing debug messages for dart-server.")
 
-(defcustom dart-enable-analysis-server nil
+(defcustom dart-server-enable-analysis-server nil
   "If non-nil, enables support for Dart analysis server.
 
 The Dart analysis server adds support for error checking, code completion,
@@ -335,27 +335,27 @@ navigation, and more."
   :type 'boolean
   :package-version '(dart-server . "0.1.0"))
 
-(defvar dart--analysis-server nil
+(defvar dart-server--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
 
-(defun dart--analysis-server-snapshot-path ()
+(defun dart-server--analysis-server-snapshot-path ()
   "The absolute path to the snapshot file that runs the Dart analysis server."
-  (when dart-sdk-path
-    (concat dart-sdk-path
+  (when dart-server-sdk-path
+    (concat dart-server-sdk-path
             (file-name-as-directory "bin")
             (file-name-as-directory "snapshots")
             "analysis_server.dart.snapshot")))
 
-(defvar dart-analysis-roots nil
+(defvar dart-server-analysis-roots nil
   "The list of analysis roots that are known to the analysis server.
 
 All Dart files underneath the analysis roots are analyzed by the analysis
 server.")
 
-(defvar dart--analysis-server-next-id 0
+(defvar dart-server--analysis-server-next-id 0
   "The ID to use for the next request to the Dart analysis server.")
 
-(defvar dart--analysis-server-callbacks nil
+(defvar dart-server--analysis-server-callbacks nil
   "An alist of ID to callback to be called when the analysis server responds.
 
 Each request to the analysis server has an associated ID.  When the analysis
@@ -363,19 +363,19 @@ server sends a response to a request, it tags the response with the ID of the
 request.  We look up the callback for the request in this alist and run it with
 the JSON decoded server response.")
 
-(defvar dart--analysis-server-subscriptions nil
+(defvar dart-server--analysis-server-subscriptions nil
   "An alist of event names to lists of callbacks to be called for those events.
 
 These callbacks take the event object and an opaque subcription
-object which can be passed to `dart--analysis-server-unsubscribe'.")
+object which can be passed to `dart-server--analysis-server-unsubscribe'.")
 
-(defun dart-info (msg)
-  "Logs MSG to the dart log if `dart-debug' is non-nil."
-  (when dart-debug (dart-log msg)))
+(defun dart-server-info (msg)
+  "Logs MSG to the dart log if `dart-server-debug' is non-nil."
+  (when dart-server-debug (dart-server-log msg)))
 
-(defun dart-log (msg)
+(defun dart-server-log (msg)
   "Logs MSG to the dart log."
-  (let* ((log-buffer (get-buffer-create "*dart-debug*"))
+  (let* ((log-buffer (get-buffer-create "*dart-server-debug*"))
          (iso-format-string "%Y-%m-%dT%T%z")
          (timestamp-and-log-string
           (format-time-string iso-format-string (current-time))))
@@ -387,63 +387,63 @@ object which can be passed to `dart--analysis-server-unsubscribe'.")
                       msg))
       (insert "\n"))))
 
-(defun dart--normalize-path (path)
+(defun dart-server--normalize-path (path)
   (if (equal system-type 'windows-nt)
       (replace-regexp-in-string (rx "/") (rx "\\") path)
     path))
 
-(defun dart--start-analysis-server-for-current-buffer ()
+(defun dart-server--start-analysis-server-for-current-buffer ()
   "Initialize Dart analysis server for current buffer.
 
 This starts Dart analysis server and adds either the pub root
 directory or the current file directory to the analysis roots."
-  (unless dart--analysis-server (dart-start-analysis-server))
+  (unless dart-server--analysis-server (dart-server-start-analysis-server))
   ;; TODO(hterkelsen): Add this file to the priority files.
-  (dart-add-analysis-root-for-file)
-  (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
-  (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
-  (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
+  (dart-server-add-analysis-root-for-file)
+  (add-hook 'first-change-hook 'dart-server-add-analysis-overlay t t)
+  (add-hook 'after-change-functions 'dart-server-change-analysis-overlay t t)
+  (add-hook 'after-save-hook 'dart-server-remove-analysis-overlay t t)
   (when (boundp 'flycheck-checkers)
-    (add-to-list 'flycheck-checkers 'dart-analysis-server)))
+    (add-to-list 'flycheck-checkers 'dart-server-analysis-server)))
 
-(defun dart-start-analysis-server ()
+(defun dart-server-start-analysis-server ()
   "Start the Dart analysis server.
 
 Initializes analysis server support for all `dart-server' buffers."
-  (when dart--analysis-server
-    (-let [process (dart--analysis-server-process dart--analysis-server)]
+  (when dart-server--analysis-server
+    (-let [process (dart-server--analysis-server-process dart-server--analysis-server)]
       (when (process-live-p process) (kill-process process)))
-    (kill-buffer (dart--analysis-server-buffer dart--analysis-server)))
+    (kill-buffer (dart-server--analysis-server-buffer dart-server--analysis-server)))
 
   (let* ((process-connection-type nil)
-         (dart-process
-          (start-process "dart-analysis-server"
-                         "*dart-analysis-server*"
-                         (dart-executable-path)
-                         (dart--analysis-server-snapshot-path))))
-    (set-process-query-on-exit-flag dart-process nil)
-    (setq dart--analysis-server
-          (dart--analysis-server-create dart-process)))
+         (dart-server-process
+          (start-process "dart-server-analysis-server"
+                         "*dart-server-analysis-server*"
+                         (dart-server-executable-path)
+                         (dart-server--analysis-server-snapshot-path))))
+    (set-process-query-on-exit-flag dart-server-process nil)
+    (setq dart-server--analysis-server
+          (dart-server--analysis-server-create dart-server-process)))
 
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer
       (when (bound-and-true-p dart-server)
-        (dart--start-analysis-server-for-current-buffer)
-        (when (buffer-modified-p buffer) (dart-add-analysis-overlay))))))
+        (dart-server--start-analysis-server-for-current-buffer)
+        (when (buffer-modified-p buffer) (dart-server-add-analysis-overlay))))))
 
-(defun dart--analysis-server-create (process)
+(defun dart-server--analysis-server-create (process)
   "Create a Dart analysis server from PROCESS."
-  (-let [instance (dart--make-analysis-server
+  (-let [instance (dart-server--make-analysis-server
                    :process process
                    :buffer (generate-new-buffer (process-name process)))]
-    (buffer-disable-undo (dart--analysis-server-buffer instance))
+    (buffer-disable-undo (dart-server--analysis-server-buffer instance))
     (set-process-filter
      process
      (lambda (_ string)
-       (dart--analysis-server-process-filter instance string)))
+       (dart-server--analysis-server-process-filter instance string)))
     instance))
 
-(defun dart-add-analysis-overlay ()
+(defun dart-server-add-analysis-overlay ()
   "Report to the Dart analysis server that it should overlay this buffer.
 
 The Dart analysis server allows clients to 'overlay' file contents with
@@ -452,25 +452,25 @@ errors for the current contents of the buffer, not whatever is saved to disk."
   ;; buffer-file-name can be nil within revert-buffer, but in that case the
   ;; buffer is just being reverted to its format on disk anyway.
   (when buffer-file-name
-    (dart--analysis-server-send
+    (dart-server--analysis-server-send
      "analysis.updateContent"
      `((files
-        . ((,(dart--normalize-path buffer-file-name)
+        . ((,(dart-server--normalize-path buffer-file-name)
             . ((type . "add")
                (content
                 . ,(save-restriction (widen) (buffer-string)))))))))))
 
-(defun dart-change-analysis-overlay
+(defun dart-server-change-analysis-overlay
     (change-begin change-end change-before-length)
   "Report to analysis server that it should change the overlay for this buffer.
 
 The region that changed ranges from CHANGE-BEGIN to CHANGE-END, and the
 length of the text before the change is CHANGE-BEFORE-LENGTH. See also
-`dart-add-analysis-overlay'."
-  (dart--analysis-server-send
+`dart-server-add-analysis-overlay'."
+  (dart-server--analysis-server-send
    "analysis.updateContent"
    `((files
-      . ((,(dart--normalize-path buffer-file-name)
+      . ((,(dart-server--normalize-path buffer-file-name)
           . ((type . "change")
              (edits
               . (((offset . ,(- change-begin 1))
@@ -478,15 +478,15 @@ length of the text before the change is CHANGE-BEFORE-LENGTH. See also
                   (replacement
                    . ,(buffer-substring change-begin change-end))))))))))))
 
-(defun dart-remove-analysis-overlay ()
+(defun dart-server-remove-analysis-overlay ()
   "Remove the overlay for the current buffer since it has been saved.
 
-See also `dart-add-analysis-overlay'."
-  (dart--analysis-server-send
+See also `dart-server-add-analysis-overlay'."
+  (dart-server--analysis-server-send
    "analysis.updateContent"
-   `((files . ((,(dart--normalize-path buffer-file-name) . ((type . "remove"))))))))
+   `((files . ((,(dart-server--normalize-path buffer-file-name) . ((type . "remove"))))))))
 
-(defun dart-add-analysis-root-for-file (&optional file)
+(defun dart-server-add-analysis-root-for-file (&optional file)
   "Add the given FILE's root to the analysis server's analysis roots.
 
 A file's root is the pub root if it is in a pub package, or the file's directory
@@ -496,79 +496,79 @@ otherwise.  If no FILE is given, then this will default to the variable
          (pub-root (locate-dominating-file file-to-add "pubspec.yaml"))
          (current-dir (file-name-directory file-to-add)))
     (if pub-root
-        (dart-add-to-analysis-roots (directory-file-name (expand-file-name pub-root)))
-      (dart-add-to-analysis-roots (directory-file-name (expand-file-name current-dir))))))
+        (dart-server-add-to-analysis-roots (directory-file-name (expand-file-name pub-root)))
+      (dart-server-add-to-analysis-roots (directory-file-name (expand-file-name current-dir))))))
 
-(defun dart-add-to-analysis-roots (dir)
+(defun dart-server-add-to-analysis-roots (dir)
   "Add DIR to the analysis server's analysis roots.
 
 The analysis roots are directories that contain Dart files. The analysis server
 analyzes all Dart files under the analysis roots and provides information about
 them when requested."
-  (add-to-list 'dart-analysis-roots (dart--normalize-path dir))
-  (dart--send-analysis-roots))
+  (add-to-list 'dart-server-analysis-roots (dart-server--normalize-path dir))
+  (dart-server--send-analysis-roots))
 
-(defun dart--send-analysis-roots ()
+(defun dart-server--send-analysis-roots ()
   "Send the current list of analysis roots to the analysis server."
-  (dart--analysis-server-send
+  (dart-server--analysis-server-send
    "analysis.setAnalysisRoots"
-   `(("included" . ,dart-analysis-roots)
+   `(("included" . ,dart-server-analysis-roots)
      ("excluded" . nil))))
 
-(defun dart--analysis-server-send (method &optional params callback)
+(defun dart-server--analysis-server-send (method &optional params callback)
   "Send the METHOD request to the server with optional PARAMS.
 
 PARAMS should be JSON-encodable.  If you provide a CALLBACK, it will be called
 with the JSON decoded response.  Otherwise, the output will just be checked."
-  (-let [req-without-id (dart--analysis-server-make-request method params)]
-    (dart--analysis-server-enqueue req-without-id callback)))
+  (-let [req-without-id (dart-server--analysis-server-make-request method params)]
+    (dart-server--analysis-server-enqueue req-without-id callback)))
 
-(defun dart--analysis-server-make-request (method &optional params)
+(defun dart-server--analysis-server-make-request (method &optional params)
   "Construct a request for the analysis server.
 
 The constructed request will call METHOD with optional PARAMS."
   `((method . ,method) (params . ,params)))
 
-(defun dart--analysis-server-on-error-callback (response)
+(defun dart-server--analysis-server-on-error-callback (response)
   "If RESPONSE has an error, report it."
   (-when-let (resp-err (assoc-default 'error response))
     (error "Analysis server error: %s" (assoc-default 'message resp-err))))
 
-(defun dart--analysis-server-enqueue (req-without-id callback)
+(defun dart-server--analysis-server-enqueue (req-without-id callback)
   "Send REQ-WITHOUT-ID to the analysis server, call CALLBACK with the result."
-  (setq dart--analysis-server-next-id (1+ dart--analysis-server-next-id))
+  (setq dart-server--analysis-server-next-id (1+ dart-server--analysis-server-next-id))
   (-let [request
-         (json-encode (cons (cons 'id (format "%s" dart--analysis-server-next-id))
+         (json-encode (cons (cons 'id (format "%s" dart-server--analysis-server-next-id))
                             req-without-id))]
 
     ;; Enqueue the request so that we can be sure all requests are processed in
     ;; order.
-    (push (cons dart--analysis-server-next-id
-                (or callback #'dart--analysis-server-on-error-callback))
-          dart--analysis-server-callbacks)
+    (push (cons dart-server--analysis-server-next-id
+                (or callback #'dart-server--analysis-server-on-error-callback))
+          dart-server--analysis-server-callbacks)
 
     (cond
-     ((not dart--analysis-server)
+     ((not dart-server--analysis-server)
       (message "Starting Dart analysis server.")
-      (dart-start-analysis-server))
-     ((not (process-live-p (dart--analysis-server-process dart--analysis-server)))
+      (dart-server-start-analysis-server))
+     ((not (process-live-p (dart-server--analysis-server-process dart-server--analysis-server)))
       (message "Dart analysis server crashed, restarting.")
-      (dart-start-analysis-server)))
+      (dart-server-start-analysis-server)))
 
-    (dart-info (concat "Sent: " request))
-    (process-send-string (dart--analysis-server-process dart--analysis-server)
+    (dart-server-info (concat "Sent: " request))
+    (process-send-string (dart-server--analysis-server-process dart-server--analysis-server)
                          (concat request "\n"))))
 
-(cl-defun dart--analysis-server-process-filter (das string)
+(cl-defun dart-server--analysis-server-process-filter (das string)
   "Handle the event or method response from the dart analysis server.
 
 The server DAS has STRING added to the buffer associated with it.
 Method responses are paired according to their pending request and
 the callback for that request is given the json decoded response."
-  (-let [buf (dart--analysis-server-buffer das)]
+  (-let [buf (dart-server--analysis-server-buffer das)]
     ;; The buffer may have been killed if the server was restarted
     (unless (buffer-live-p buf)
-      (cl-return-from dart--analysis-server-process-filter))
+      (cl-return-from dart-server--analysis-server-process-filter))
 
     ;; We use a buffer here because emacs might call the filter before the
     ;; entire line has been written out. In this case we store the
@@ -585,98 +585,98 @@ the callback for that request is given the json decoded response."
                (--filter (and it (not (string-empty-p it)))
                          (-butlast buf-lines))]
           (dolist (message messages)
-            (dart-info (concat "Received: " message))
-            (dart--analysis-server-handle-msg
+            (dart-server-info (concat "Received: " message))
+            (dart-server--analysis-server-handle-msg
              (-let [json-array-type 'list]
                (json-read-from-string message)))))))))
 
-(defun dart--analysis-server-handle-msg (msg)
+(defun dart-server--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
-  (-if-let* ((raw-id (dart--get msg 'id))
+  (-if-let* ((raw-id (dart-server--get msg 'id))
              (id (string-to-number raw-id)))
       ;; This is a response to a request, so we should invoke a callback in
-      ;; dart--analysis-server-callbacks.
-      (-if-let (resp-closure (dart--get dart--analysis-server-callbacks id))
+      ;; dart-server--analysis-server-callbacks.
+      (-if-let (resp-closure (dart-server--get dart-server--analysis-server-callbacks id))
           (progn
-            (setq dart--analysis-server-callbacks
-                  (assq-delete-all id dart--analysis-server-callbacks))
+            (setq dart-server--analysis-server-callbacks
+                  (assq-delete-all id dart-server--analysis-server-callbacks))
             (funcall resp-closure msg))
-        (-if-let (err (dart--get msg 'error))
-            (dart--analysis-server-on-error-callback msg)
-          (dart-info (format "No callback was associated with id %s" raw-id))))
+        (-if-let (err (dart-server--get msg 'error))
+            (dart-server--analysis-server-on-error-callback msg)
+          (dart-server-info (format "No callback was associated with id %s" raw-id))))
 
     ;; This is a notification, so we should invoke callbacks in
-    ;; dart--analysis-server-subscriptions.
-    (-when-let* ((event (dart--get msg 'event))
-                 (params (dart--get msg 'params))
-                 (callbacks (dart--get dart--analysis-server-subscriptions event)))
+    ;; dart-server--analysis-server-subscriptions.
+    (-when-let* ((event (dart-server--get msg 'event))
+                 (params (dart-server--get msg 'params))
+                 (callbacks (dart-server--get dart-server--analysis-server-subscriptions event)))
       (dolist (callback callbacks)
         (-let [subscription (cons event callback)]
           (funcall callback params subscription))))))
 
-(defun dart--analysis-server-subscribe (event callback)
+(defun dart-server--analysis-server-subscribe (event callback)
   "Registers CALLBACK to be called for each EVENT of the given type.
 
 CALLBACK should take two parameters: the event object and an
 opaque subscription object that can be passed to
-`dart--analysis-server-unsubscribe'. Returns the same opaque
+`dart-server--analysis-server-unsubscribe'. Returns the same opaque
 subscription object."
-  (-if-let (cell (assoc event dart--analysis-server-subscriptions))
+  (-if-let (cell (assoc event dart-server--analysis-server-subscriptions))
       (nconc cell (list callback))
-    (push (cons event (list callback)) dart--analysis-server-subscriptions))
+    (push (cons event (list callback)) dart-server--analysis-server-subscriptions))
   (cons event callback))
 
-(defun dart--analysis-server-unsubscribe (subscription)
+(defun dart-server--analysis-server-unsubscribe (subscription)
   "Unregisters the analysis server SUBSCRIPTION.
 
 SUBSCRIPTION is an opaque object provided by
-`dart--analysis-server-subscribe'."
+`dart-server--analysis-server-subscribe'."
   (-let [(event . callback) subscription]
-    (delq callback (assoc event dart--analysis-server-subscriptions))))
+    (delq callback (assoc event dart-server--analysis-server-subscriptions))))
 
 ;;;; Flycheck Error Reporting
 
-(defun dart--flycheck-start (_ callback)
+(defun dart-server--flycheck-start (_ callback)
   "Run the CHECKER and report the errors to the CALLBACK."
-  (dart-info (format "Checking syntax for %s" (current-buffer)))
-  (dart--analysis-server-send
+  (dart-server-info (format "Checking syntax for %s" (current-buffer)))
+  (dart-server--analysis-server-send
    "analysis.getErrors"
-   `((file . ,(dart--normalize-path (buffer-file-name))))
+   `((file . ,(dart-server--normalize-path (buffer-file-name))))
    (-let [buffer (current-buffer)]
      (lambda (response)
-       (dart--report-errors response buffer callback)))))
+       (dart-server--report-errors response buffer callback)))))
 
 (when (fboundp 'flycheck-define-generic-checker)
  (flycheck-define-generic-checker
-  'dart-analysis-server
+  'dart-server-analysis-server
   "Checks Dart source code for errors using Dart analysis server."
-  :start 'dart--flycheck-start
+  :start 'dart-server--flycheck-start
   :modes '(dart-server)))
 
-(defun dart--report-errors (response buffer callback)
+(defun dart-server--report-errors (response buffer callback)
   "Report the errors returned from the analysis server.
 
 The errors contained in RESPONSE from Dart analysis server run on BUFFER are
 reported to CALLBACK."
-  (dart-info (format "Reporting to flycheck: %s" response))
-  (-let [fly-errors (--map (dart--to-flycheck-err it buffer)
-                           (dart--get response 'result 'errors))]
-    (dart-info (format "Parsed errors: %s" fly-errors))
+  (dart-server-info (format "Reporting to flycheck: %s" response))
+  (-let [fly-errors (--map (dart-server--to-flycheck-err it buffer)
+                           (dart-server--get response 'result 'errors))]
+    (dart-server-info (format "Parsed errors: %s" fly-errors))
     (funcall callback 'finished fly-errors)))
 
-(defun dart--to-flycheck-err (err buffer)
+(defun dart-server--to-flycheck-err (err buffer)
   "Create a flycheck error from a dart ERR in BUFFER."
   (when (fboundp 'flycheck-error-new)
     (flycheck-error-new
      :buffer buffer
-     :checker 'dart-analysis-server
-     :filename (dart--get err 'location 'file)
-     :line (dart--get err 'location 'startLine)
-     :column (dart--get err 'location 'startColumn)
-     :message (dart--get err 'message)
-     :level (dart--severity-to-level (dart--get err 'severity)))))
+     :checker 'dart-server-analysis-server
+     :filename (dart-server--get err 'location 'file)
+     :line (dart-server--get err 'location 'startLine)
+     :column (dart-server--get err 'location 'startColumn)
+     :message (dart-server--get err 'message)
+     :level (dart-server--severity-to-level (dart-server--get err 'severity)))))
 
-(defun dart--severity-to-level (severity)
+(defun dart-server--severity-to-level (severity)
   "Convert SEVERITY to a flycheck level."
   (cond
    ((string= severity "INFO") 'info)
@@ -685,22 +685,22 @@ reported to CALLBACK."
 
 ;;;; Hover
 
-(defun dart-show-hover (&optional show-in-buffer)
+(defun dart-server-show-hover (&optional show-in-buffer)
   "Displays hover information for the current point.
 
 With a prefix argument, opens a new buffer rather than using the
 minibuffer."
   (interactive "P")
-  (-when-let (filename (dart--normalize-path (buffer-file-name)))
+  (-when-let (filename (dart-server--normalize-path (buffer-file-name)))
     (let ((show-in-buffer show-in-buffer)
           (buffer (current-buffer))
           (pos (point)))
-      (dart--analysis-server-send
+      (dart-server--analysis-server-send
        "analysis.getHover"
        `(("file" . ,filename) ("offset" . ,pos))
        (lambda (response)
-         (-when-let (hover (car (dart--get response 'result 'hovers)))
-           (dart--json-let hover
+         (-when-let (hover (car (dart-server--get response 'result 'hovers)))
+           (dart-server--json-let hover
                (offset
                 length
                 dartdoc
@@ -712,41 +712,41 @@ minibuffer."
 
              ;; Briefly highlight the region that's being shown.
              (with-current-buffer buffer
-               (dart--flash-highlight offset length))
+               (dart-server--flash-highlight offset length))
 
              (with-temp-buffer
                (when is-deprecated
-                 (insert (dart--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
+                 (insert (dart-server--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
 
                (when element-description
-                 (insert (dart--highlight-description element-description)
-                         (dart--face-string (concat " (" element-kind ")") 'italic))
+                 (insert (dart-server--highlight-description element-description)
+                         (dart-server--face-string (concat " (" element-kind ")") 'italic))
                  (when (or dartdoc parameter) (insert ?\n)))
                (when parameter
                  (insert
-                  (dart--highlight-description parameter)
-                  (dart--face-string " (parameter type)" 'italic))
+                  (dart-server--highlight-description parameter)
+                  (dart-server--face-string " (parameter type)" 'italic))
                  (when dartdoc) (insert ?\n))
                (when dartdoc
                  (when (or element-description parameter) (insert ?\n))
-                 (insert (dart--highlight-dartdoc dartdoc (not show-in-buffer))))
+                 (insert (dart-server--highlight-dartdoc dartdoc (not show-in-buffer))))
 
                (let ((text (buffer-string)))
                  (if show-in-buffer
                      (with-current-buffer-window
                       "*Dart Analysis*" nil nil
                       (insert text)
-                      (dart-popup-mode)
+                      (dart-server-popup-mode)
 
-                      (setq dart--do-it-again-callback
+                      (setq dart-server--do-it-again-callback
                             (lambda ()
                               (save-excursion
                                 (with-current-buffer buffer
                                   (goto-char pos)
-                                  (dart-show-hover t))))))
+                                  (dart-server-show-hover t))))))
                    (message "%s" text)))))))))))
 
-(defconst dart--highlight-keyword-re
+(defconst dart-server--highlight-keyword-re
   (regexp-opt
    '("get" "set" "as" "abstract" "class" "extends" "implements" "enum" "typedef"
      "const" "covariant" "deferred" "factory" "final" "import" "library" "new"
@@ -754,7 +754,7 @@ minibuffer."
    'words)
   "A regular expression that matches keywords.")
 
-(defun dart--highlight-description (description)
+(defun dart-server--highlight-description (description)
   "Returns a highlighted copy of DESCRIPTION."
   (with-temp-buffer
     (insert description)
@@ -763,45 +763,45 @@ minibuffer."
     (while (not (eq (point) (point-max)))
       (cond
        ;; A keyword.
-       ((looking-at dart--highlight-keyword-re)
-        (dart--fontify-excursion 'font-lock-keyword-face
+       ((looking-at dart-server--highlight-keyword-re)
+        (dart-server--fontify-excursion 'font-lock-keyword-face
           (goto-char (match-end 0))))
 
        ;; An identifier could be a function name or a type name.
-       ((looking-at dart--identifier-re)
+       ((looking-at dart-server--identifier-re)
         (goto-char (match-end 0))
         (put-text-property
          (match-beginning 0) (point) 'face
-         (if (dart--at-end-of-function-name-p) 'font-lock-function-name-face
+         (if (dart-server--at-end-of-function-name-p) 'font-lock-function-name-face
            'font-lock-type-face))
 
         (cl-case (char-after)
           ;; Foo.bar()
           (?.
            (forward-char)
-           (dart--fontify-excursion 'font-lock-function-name-face
-             (dart--forward-identifier)))
+           (dart-server--fontify-excursion 'font-lock-function-name-face
+             (dart-server--forward-identifier)))
 
           ;; Foo bar
           (?\s
            (forward-char)
-           (dart--fontify-excursion 'font-lock-variable-name-face
-             (dart--forward-identifier)))))
+           (dart-server--fontify-excursion 'font-lock-variable-name-face
+             (dart-server--forward-identifier)))))
 
        ;; Anything else is punctuation that we ignore.
        (t (forward-char))))
 
     (buffer-string)))
 
-(defun dart--at-end-of-function-name-p ()
+(defun dart-server--at-end-of-function-name-p ()
   "Returns whether the point is at the end of a function name."
   (cl-case (char-after)
     (?\( t)
     (?<
-     (and (looking-at (concat "\\(" dart--identifier-re "\\|[<>]\\)*"))
+     (and (looking-at (concat "\\(" dart-server--identifier-re "\\|[<>]\\)*"))
           (eq (char-after (match-end 0)) ?\()))))
 
-(defun dart--highlight-dartdoc (dartdoc truncate)
+(defun dart-server--highlight-dartdoc (dartdoc truncate)
   "Returns a higlighted copy of DARTDOC."
   (with-temp-buffer
     (insert dartdoc)
@@ -821,34 +821,34 @@ minibuffer."
 
 ;;;; Navigation
 
-(defun dart-goto ()
+(defun dart-server-goto ()
   (interactive)
-  (-when-let (filename (dart--normalize-path (buffer-file-name)))
-    (dart--analysis-server-send
+  (-when-let (filename (dart-server--normalize-path (buffer-file-name)))
+    (dart-server--analysis-server-send
      "analysis.getNavigation"
      `(("file" . ,filename) ("offset" . ,(point)) ("length" . 0))
      (lambda (response)
-       (-when-let (result (dart--get response 'result))
-         (dart--json-let result (files targets regions)
+       (-when-let (result (dart-server--get response 'result))
+         (dart-server--json-let result (files targets regions)
            (-when-let (region (car regions))
-             (let* ((target-index (car (dart--get region 'targets)))
+             (let* ((target-index (car (dart-server--get region 'targets)))
                     (target (elt targets target-index))
 
-                    (file-index (dart--get target 'fileIndex))
-                    (offset (dart--get target 'offset))
-                    (length (dart--get target 'length))
+                    (file-index (dart-server--get target 'fileIndex))
+                    (offset (dart-server--get target 'offset))
+                    (length (dart-server--get target 'length))
 
                     (file (elt files file-index)))
                (find-file file)
                (goto-char (+ 1 offset))
-               (dart--flash-highlight offset length)))))))))
+               (dart-server--flash-highlight offset length)))))))))
 
 ;;;; Search
 
-(defun dart-find-refs (pos &optional include-potential)
+(defun dart-server-find-refs (pos &optional include-potential)
   (interactive "dP")
-  (-when-let (filename (dart--normalize-path (buffer-file-name)))
-    (dart--analysis-server-send
+  (-when-let (filename (dart-server--normalize-path (buffer-file-name)))
+    (dart-server--analysis-server-send
      "search.findElementReferences"
      `(("file" . ,filename)
        ("offset" . ,pos)
@@ -856,60 +856,60 @@ minibuffer."
      (let ((buffer (current-buffer))
            (include-potential include-potential))
        (lambda (response)
-         (-when-let (result (dart--get response 'result))
-           (let ((name (dart--get result 'element 'name))
-                 (location (dart--get result 'element 'location)))
-             (dart--display-search-results
-              (dart--get result 'id)
+         (-when-let (result (dart-server--get response 'result))
+           (let ((name (dart-server--get result 'element 'name))
+                 (location (dart-server--get result 'element 'location)))
+             (dart-server--display-search-results
+              (dart-server--get result 'id)
               (lambda ()
-                (setq dart--do-it-again-callback
+                (setq dart-server--do-it-again-callback
                       (lambda ()
                         (with-current-buffer buffer
-                          (dart-find-refs pos include-potential))))
+                          (dart-server-find-refs pos include-potential))))
 
                 (insert "References to ")
                 (insert-button
                  name
-                 'action (lambda (_) (dart--goto-location location)))
+                 'action (lambda (_) (dart-server--goto-location location)))
                 (insert ":\n\n"))))))))))
 
-(defun dart-find-member-decls (name)
+(defun dart-server-find-member-decls (name)
   "Find member declarations named NAME."
   (interactive "sMember name: ")
-  (dart--find-by-name
+  (dart-server--find-by-name
    "search.findMemberDeclarations" "name" name "Members named "))
 
-(defun dart-find-member-refs (name)
+(defun dart-server-find-member-refs (name)
   "Find member references named NAME."
   (interactive "sMember name: ")
-  (dart--find-by-name
+  (dart-server--find-by-name
    "search.findMemberReferences" "name" name "References to "))
 
-(defun dart-find-top-level-decls (name)
+(defun dart-server-find-top-level-decls (name)
   "Find top-level declarations named NAME."
   (interactive "sDeclaration name: ")
-  (dart--find-by-name
+  (dart-server--find-by-name
    "search.findTopLevelDeclarations" "pattern" name "Declarations matching "))
 
-(defun dart--find-by-name (method argument name header)
+(defun dart-server--find-by-name (method argument name header)
   "A helper function for running an analysis server search for NAME.
 
 Calls the given analysis server METHOD passing NAME to the given
 ARGUMENT. Displays a header beginning with HEADER in the results."
-  (dart--analysis-server-send
+  (dart-server--analysis-server-send
    method
    (list (cons argument name))
    (lambda (response)
-     (-when-let (id (dart--get response 'result 'id))
-       (dart--display-search-results
+     (-when-let (id (dart-server--get response 'result 'id))
+       (dart-server--display-search-results
         id
         (lambda ()
-          (setq dart--do-it-again-callback
+          (setq dart-server--do-it-again-callback
                 (lambda ()
-                  (dart--find-by-name method argument name header)))
+                  (dart-server--find-by-name method argument name header)))
           (insert header name ":\n\n")))))))
 
-(defun dart--display-search-results (search-id callback)
+(defun dart-server--display-search-results (search-id callback)
   "Displays search results with the given SEARCH-ID.
 
 CALLBACK is called with no arguments in the search result buffer
@@ -919,71 +919,71 @@ to add a header and otherwise prepare it for displaying results."
         (total-results 0))
     (with-current-buffer-window
      "*Dart Search*" nil nil
-     (dart-popup-mode)
+     (dart-server-popup-mode)
      (setq buffer (current-buffer))
      (funcall callback)
      (setq beginning-of-results (point))
 
-     (dart--analysis-server-subscribe
+     (dart-server--analysis-server-subscribe
       "search.results"
       (lambda (event subscription)
         (with-current-buffer buffer
-          (dart--json-let event (id results (is-last isLast))
+          (dart-server--json-let event (id results (is-last isLast))
             (when (equal id search-id)
               (-let [buffer-read-only nil]
                 (save-excursion
                   (goto-char (point-max))
                   (dolist (result results)
-                    (let ((location (dart--get result 'location))
-                          (path (dart--get result 'path))
+                    (let ((location (dart-server--get result 'location))
+                          (path (dart-server--get result 'path))
                           (start (point)))
-                      (dart--fontify-excursion '(compilation-info underline)
+                      (dart-server--fontify-excursion '(compilation-info underline)
                         (when (cl-some
                                (lambda (element)
-                                 (equal (dart--get element 'kind) "CONSTRUCTOR"))
+                                 (equal (dart-server--get element 'kind) "CONSTRUCTOR"))
                                path)
                           (insert "new "))
 
                         (insert
                          (->> path
-                              (--remove (member (dart--get it 'kind)
+                              (--remove (member (dart-server--get it 'kind)
                                                 '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER")))
-                              (--map (dart--get it 'name))
+                              (--map (dart-server--get it 'name))
                               (-remove 'string-empty-p)
                               nreverse
                               (s-join ".")))
 
                         (make-text-button
                          start (point)
-                         'action (lambda (_) (dart--goto-location location))))
+                         'action (lambda (_) (dart-server--goto-location location))))
 
-                      (dart--json-let location (file (line startLine) (column startColumn))
+                      (dart-server--json-let location (file (line startLine) (column startColumn))
                         (insert " " file ":"
-                                (dart--face-string line 'compilation-line-number) ":"
-                                (dart--face-string column 'compilation-column-number) ?\n)))))
+                                (dart-server--face-string line 'compilation-line-number) ":"
+                                (dart-server--face-string column 'compilation-column-number) ?\n)))))
 
                 (setq total-results (+ total-results (length results)))
 
                 (when (eq is-last t)
-                  (dart--analysis-server-unsubscribe subscription)
+                  (dart-server--analysis-server-unsubscribe subscription)
                   (save-excursion
                     (goto-char (point-max))
-                    (insert "\nFound " (dart--face-string total-results 'bold) " results."))))))))))
+                    (insert "\nFound " (dart-server--face-string total-results 'bold) " results."))))))))))
 
     (select-window (get-buffer-window buffer))
     (goto-char beginning-of-results)))
 
-(defun dart--goto-location (location)
+(defun dart-server--goto-location (location)
   "Sends the user to the analysis server LOCATION."
-  (dart--json-let location (file offset length)
+  (dart-server--json-let location (file offset length)
     (find-file file)
     (goto-char (+ 1 offset))
-    (dart--flash-highlight offset length)))
+    (dart-server--flash-highlight offset length)))
 
 ;;;; Auto-complete
 
-(defcustom dart-expand-fallback (key-binding (kbd "M-/"))
-  "The fallback command to use for `dart-expand'.
+(defcustom dart-server-expand-fallback (key-binding (kbd "M-/"))
+  "The fallback command to use for `dart-server-expand'.
 
 This is used when the analysis server isn't available. It
 defaults to the command globally bound to M-/."
@@ -991,91 +991,91 @@ defaults to the command globally bound to M-/."
   :type 'function
   :package-version '(dart-server . "0.1.0"))
 
-(defvar dart--last-expand-results nil
-  "The results of the last call to `dart-expand'.")
+(defvar dart-server--last-expand-results nil
+  "The results of the last call to `dart-server-expand'.")
 
-(defvar dart--last-expand-beginning nil
-  "The marker for the beginning of the text inserted by the last call to `dart-expand'.")
+(defvar dart-server--last-expand-beginning nil
+  "The marker for the beginning of the text inserted by the last call to `dart-server-expand'.")
 
-(defvar dart--last-expand-end nil
-  "The marker for the end of the text inserted by the last call to `dart-expand'.")
+(defvar dart-server--last-expand-end nil
+  "The marker for the end of the text inserted by the last call to `dart-server-expand'.")
 
-(defvar dart--last-expand-index nil
-  "The index into `dart--last-expand-results' for the last call to `dart-expand'.")
+(defvar dart-server--last-expand-index nil
+  "The index into `dart-server--last-expand-results' for the last call to `dart-server-expand'.")
 
-(defvar dart--last-expand-parameters-index nil
-  "The index into for the last parameter suggestion from `dart-expand-parameters'.
+(defvar dart-server--last-expand-parameters-index nil
+  "The index into for the last parameter suggestion from `dart-server-expand-parameters'.
 
 This is an index into the paramaterNames and parameterTypes list
-in the suggestion identified by `dart--last-expand-index', and
-into `dart--last-expand-parameters-ranges'.")
+in the suggestion identified by `dart-server--last-expand-index', and
+into `dart-server--last-expand-parameters-ranges'.")
 
-(defvar dart--last-expand-parameters-ranges nil
-  "The list of parameter ranges for the last call to `dart-expand-parameters'.
+(defvar dart-server--last-expand-parameters-ranges nil
+  "The list of parameter ranges for the last call to `dart-server-expand-parameters'.
 
 This is a list of pairs of markers. Each pair identifies the
 beginning and end of a parameter in the parameter list generated
-by `dart-expand-parameters'`.
+by `dart-server-expand-parameters'`.
 
 Note that the end markers are placed one character after the
 actual ending of the parameter. This ensures that if the marker
 stayas in place when the parameter is overwritten.")
 
-(defvar dart--last-expand-subscription nil
-  "The last analysis server subscription from a call to `dart-expand'.")
+(defvar dart-server--last-expand-subscription nil
+  "The last analysis server subscription from a call to `dart-server-expand'.")
 
-(cl-defun dart-expand ()
+(cl-defun dart-server-expand ()
   "Expand previous word using Dart's autocompletion."
   (interactive "*")
-  (unless dart-enable-analysis-server
-    (call-interactively dart-expand-fallback t)
-    (cl-return-from dart-expand))
+  (unless dart-server-enable-analysis-server
+    (call-interactively dart-server-expand-fallback t)
+    (cl-return-from dart-server-expand))
 
-  (when (and (memq last-command '(dart-expand dart-expand-parameters))
-             dart--last-expand-results)
-    (cl-incf dart--last-expand-index)
-    (when (>= dart--last-expand-index (length dart--last-expand-results))
-      (setq dart--last-expand-index 0))
-    (dart--use-expand-suggestion
-     dart--last-expand-beginning
-     dart--last-expand-end
-     (elt dart--last-expand-results dart--last-expand-index))
-    (cl-return-from dart-expand))
+  (when (and (memq last-command '(dart-server-expand dart-server-expand-parameters))
+             dart-server--last-expand-results)
+    (cl-incf dart-server--last-expand-index)
+    (when (>= dart-server--last-expand-index (length dart-server--last-expand-results))
+      (setq dart-server--last-expand-index 0))
+    (dart-server--use-expand-suggestion
+     dart-server--last-expand-beginning
+     dart-server--last-expand-end
+     (elt dart-server--last-expand-results dart-server--last-expand-index))
+    (cl-return-from dart-server-expand))
 
-  (when dart--last-expand-subscription
-    (dart--analysis-server-unsubscribe dart--last-expand-subscription))
-  (setq dart--last-expand-results nil)
-  (setq dart--last-expand-beginning nil)
-  (setq dart--last-expand-end nil)
-  (setq dart--last-expand-index nil)
-  (setq dart--last-expand-subscription nil)
+  (when dart-server--last-expand-subscription
+    (dart-server--analysis-server-unsubscribe dart-server--last-expand-subscription))
+  (setq dart-server--last-expand-results nil)
+  (setq dart-server--last-expand-beginning nil)
+  (setq dart-server--last-expand-end nil)
+  (setq dart-server--last-expand-index nil)
+  (setq dart-server--last-expand-subscription nil)
 
-  (-when-let (filename (dart--normalize-path (buffer-file-name)))
-    (dart--analysis-server-send
+  (-when-let (filename (dart-server--normalize-path (buffer-file-name)))
+    (dart-server--analysis-server-send
      "completion.getSuggestions"
      `(("file" . ,filename)
        ("offset" . ,(- (point) 1)))
      (let ((buffer (current-buffer))
            (first t))
        (lambda (response)
-         (-when-let (completion-id (dart--get response 'result 'id))
-           (dart--analysis-server-subscribe
+         (-when-let (completion-id (dart-server--get response 'result 'id))
+           (dart-server--analysis-server-subscribe
             "completion.results"
-            (setq dart--last-expand-subscription
+            (setq dart-server--last-expand-subscription
                   (lambda (event subscription)
-                    (dart--json-let event
+                    (dart-server--json-let event
                         (id results
                             (offset replacementOffset)
                             (length replacementLength)
                             (is-last isLast))
-                      (when is-last (dart--analysis-server-unsubscribe subscription))
+                      (when is-last (dart-server--analysis-server-unsubscribe subscription))
 
                       (when (equal id completion-id)
                         (with-current-buffer buffer
-                          (dart--handle-completion-event results offset length first))
+                          (dart-server--handle-completion-event results offset length first))
                         (setq first nil))))))))))))
 
-(defun dart--handle-completion-event (results offset length first)
+(defun dart-server--handle-completion-event (results offset length first)
   "Handles a completion results event.
 
 If FIRST is non-nil, this is the first completion event for this completion."
@@ -1085,23 +1085,23 @@ If FIRST is non-nil, this is the first completion event for this completion."
   (when (> length 0)
     (-let [text (buffer-substring (+ offset 1) (+ offset length 1))]
       (setq results
-            (--remove (string-prefix-p text (dart--get it 'completion) t)
+            (--remove (string-prefix-p text (dart-server--get it 'completion) t)
                       results))))
 
   (when (> (length results) 0)
     ;; Fill the first result so the first call does something. Just save later
     ;; results for future calls.
     (when first
-      (setq dart--last-expand-index 0)
-      (setq dart--last-expand-beginning (copy-marker (+ offset 1)))
-      (dart--use-expand-suggestion (+ offset 1) (+ offset length 1) (car results)))
+      (setq dart-server--last-expand-index 0)
+      (setq dart-server--last-expand-beginning (copy-marker (+ offset 1)))
+      (dart-server--use-expand-suggestion (+ offset 1) (+ offset length 1) (car results)))
 
     (setq first nil)
-    (setq dart--last-expand-results results)))
+    (setq dart-server--last-expand-results results)))
 
-(defun dart--use-expand-suggestion (beginning end suggestion)
+(defun dart-server--use-expand-suggestion (beginning end suggestion)
   "Inserts SUGGESTION between BEGINNING and END."
-  (dart--json-let suggestion
+  (dart-server--json-let suggestion
       (completion element
        (selection-offset selectionOffset)
        (is-deprecated isDeprecated)
@@ -1110,22 +1110,22 @@ If FIRST is non-nil, this is the first completion event for this completion."
     (delete-region beginning end)
     (save-excursion
       (insert completion)
-      (setq dart--last-expand-end (point-marker)))
+      (setq dart-server--last-expand-end (point-marker)))
     (forward-char selection-offset)
 
     (with-temp-buffer
       (when (eq is-deprecated t)
-        (insert (dart--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
+        (insert (dart-server--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
 
-      (insert (dart--highlight-description (dart--description-of-element element)))
+      (insert (dart-server--highlight-description (dart-server--description-of-element element)))
       (when doc-summary
-        (insert ?\n ?\n (dart--highlight-dartdoc doc-summary nil)))
+        (insert ?\n ?\n (dart-server--highlight-dartdoc doc-summary nil)))
 
       (message "%s" (buffer-string)))))
 
-(defun dart--description-of-element (element)
+(defun dart-server--description-of-element (element)
   "Returns a textual description of an analysis server ELEMENT."
-  (dart--json-let element
+  (dart-server--json-let element
       (kind name parameters
        (return-type returnType)
        (type-parameters typeParameters))
@@ -1147,69 +1147,69 @@ If FIRST is non-nil, this is the first completion event for this completion."
         (when return-type (insert " → " return-type)))
       (buffer-string))))
 
-(cl-defun dart-expand-parameters ()
-  "Adds parameters to the currently-selected `dart-expand' completion.
+(cl-defun dart-server-expand-parameters ()
+  "Adds parameters to the currently-selected `dart-server-expand' completion.
 
 This will select the first parameter, if one exists."
   (interactive "*")
   (cond
-   ((and (eq last-command 'dart-expand)
-         dart--last-expand-results)
+   ((and (eq last-command 'dart-server-expand)
+         dart-server--last-expand-results)
 
-    ;; If this is called directly after `dart-expand', create the parameter list
+    ;; If this is called directly after `dart-server-expand', create the parameter list
     ;; and highlight the first entry.
-    (setq dart--last-expand-parameters-index 0)
-    (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
+    (setq dart-server--last-expand-parameters-index 0)
+    (dart-server--json-let (elt dart-server--last-expand-results dart-server--last-expand-index)
         ((parameter-names parameterNames)
          (argument-string defaultArgumentListString)
          (argument-ranges defaultArgumentListTextRanges))
-      (unless parameter-names (cl-return-from dart-expand-parameters))
+      (unless parameter-names (cl-return-from dart-server-expand-parameters))
 
       (unless argument-string
         (insert ?\()
         (save-excursion
           (insert ?\))
-          (setq dart--last-expand-end (point-marker)))
-        (cl-return-from dart-expand-parameters))
+          (setq dart-server--last-expand-end (point-marker)))
+        (cl-return-from dart-server-expand-parameters))
 
       (save-excursion
         (insert ?\( argument-string ?\))
-        (setq dart--last-expand-end (point-marker)))
+        (setq dart-server--last-expand-end (point-marker)))
 
-      (setq dart--last-expand-parameters-ranges
+      (setq dart-server--last-expand-parameters-ranges
             (cl-loop for i below (length argument-ranges) by 2
                   collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
                                  (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
                             (list (copy-marker beginning) (copy-marker end)))))
 
-      (dart--expand-select-parameter)))
+      (dart-server--expand-select-parameter)))
 
-   ((and (< dart--last-expand-beginning (point) dart--last-expand-end)
-         dart--last-expand-parameters-index)
+   ((and (< dart-server--last-expand-beginning (point) dart-server--last-expand-end)
+         dart-server--last-expand-parameters-index)
 
     ;; If this is called when the point is within the text generated by the
-    ;; last `dart-expand-parameters' call, move to the next parameter in the
+    ;; last `dart-server-expand-parameters' call, move to the next parameter in the
     ;; list.
-    (cl-incf dart--last-expand-parameters-index)
-    (when (>= dart--last-expand-parameters-index (length dart--last-expand-parameters-ranges))
-      (setq dart--last-expand-parameters-index 0))
+    (cl-incf dart-server--last-expand-parameters-index)
+    (when (>= dart-server--last-expand-parameters-index (length dart-server--last-expand-parameters-ranges))
+      (setq dart-server--last-expand-parameters-index 0))
 
-    (dart--expand-select-parameter))))
+    (dart-server--expand-select-parameter))))
 
-(defun dart--expand-select-parameter ()
+(defun dart-server--expand-select-parameter ()
   "Selects the parameter indicated by expansion variables."
-  (-let [(beginning end) (elt dart--last-expand-parameters-ranges
-                              dart--last-expand-parameters-index)]
-    (dart--delsel-range beginning (- end 1)))
+  (-let [(beginning end) (elt dart-server--last-expand-parameters-ranges
+                              dart-server--last-expand-parameters-index)]
+    (dart-server--delsel-range beginning (- end 1)))
 
-  (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
+  (dart-server--json-let (elt dart-server--last-expand-results dart-server--last-expand-index)
       ((parameter-names parameterNames)
        (parameter-types parameterTypes))
-    (message "%s" (dart--highlight-description
-                   (concat (elt parameter-types dart--last-expand-parameters-index) " "
-                           (elt parameter-names dart--last-expand-parameters-index))))))
+    (message "%s" (dart-server--highlight-description
+                   (concat (elt parameter-types dart-server--last-expand-parameters-index) " "
+                           (elt parameter-names dart-server--last-expand-parameters-index))))))
 
-(defun dart--delsel-range (beginning end)
+(defun dart-server--delsel-range (beginning end)
   "Highlights the range between BEGINNING and END and enables `delete-selection-mode' temporarily."
   (setq transient-mark-mode nil)
   (goto-char beginning)
@@ -1228,73 +1228,73 @@ This will select the first parameter, if one exists."
      ;; delete-selection-mode.
      (unless delete-selection-mode
        (delete-selection-mode 1)
-       (add-hook 'post-command-hook 'dart--disable-delsel t t)))))
+       (add-hook 'post-command-hook 'dart-server--disable-delsel t t)))))
 
-(defun dart--disable-delsel ()
+(defun dart-server--disable-delsel ()
   "Disables `delete-selection-mode' and deactivates the mark.
 
 Also removes this function from `post-command-hook'."
   (deactivate-mark)
   (delete-selection-mode 0)
-  (remove-hook 'post-command-hook 'dart--disable-delsel t))
+  (remove-hook 'post-command-hook 'dart-server--disable-delsel t))
 
 
 ;;; Popup Mode
 
-(define-derived-mode dart-popup-mode fundamental-mode "DartPopup"
+(define-derived-mode dart-server-popup-mode fundamental-mode "DartPopup"
   "Major mode for popups."
-  :mode 'dart-popup
-  (use-local-map dart-popup-mode-map))
+  :mode 'dart-server-popup
+  (use-local-map dart-server-popup-mode-map))
 
-(put 'dart-popup-mode 'mode-class 'special)
+(put 'dart-server-popup-mode 'mode-class 'special)
 
-(defvar dart-popup-mode-map (make-sparse-keymap)
+(defvar dart-server-popup-mode-map (make-sparse-keymap)
   "Keymap used in Dart popup buffers.")
-(set-keymap-parent dart-popup-mode-map help-mode-map)
+(set-keymap-parent dart-server-popup-mode-map help-mode-map)
 
-(define-key dart-popup-mode-map (kbd "g") 'dart-do-it-again)
+(define-key dart-server-popup-mode-map (kbd "g") 'dart-server-do-it-again)
 
 ;; Unbind help-specific keys.
-(define-key dart-popup-mode-map (kbd "RET") nil)
-(define-key dart-popup-mode-map (kbd "l") nil)
-(define-key dart-popup-mode-map (kbd "r") nil)
-(define-key dart-popup-mode-map (kbd "<XF86Back>") nil)
-(define-key dart-popup-mode-map (kbd "<XF86Forward>") nil)
-(define-key dart-popup-mode-map (kbd "<mouse-2>") nil)
-(define-key dart-popup-mode-map (kbd "C-c C-b") nil)
-(define-key dart-popup-mode-map (kbd "C-c C-c") nil)
-(define-key dart-popup-mode-map (kbd "C-c C-f") nil)
+(define-key dart-server-popup-mode-map (kbd "RET") nil)
+(define-key dart-server-popup-mode-map (kbd "l") nil)
+(define-key dart-server-popup-mode-map (kbd "r") nil)
+(define-key dart-server-popup-mode-map (kbd "<XF86Back>") nil)
+(define-key dart-server-popup-mode-map (kbd "<XF86Forward>") nil)
+(define-key dart-server-popup-mode-map (kbd "<mouse-2>") nil)
+(define-key dart-server-popup-mode-map (kbd "C-c C-b") nil)
+(define-key dart-server-popup-mode-map (kbd "C-c C-c") nil)
+(define-key dart-server-popup-mode-map (kbd "C-c C-f") nil)
 
-(defun dart-do-it-again ()
+(defun dart-server-do-it-again ()
   "Re-runs the logic that generated the current buffer."
   (interactive)
-  (when dart--do-it-again-callback
-    (funcall dart--do-it-again-callback)))
+  (when dart-server--do-it-again-callback
+    (funcall dart-server--do-it-again-callback)))
 
 
 ;;; Formatting
 
-(defcustom dart-formatter-command-override nil
+(defcustom dart-server-formatter-command-override nil
   "The command for running the Dart formatter.
 
-Don't read this variable; call `dart-formatter-command' instead."
+Don't read this variable; call `dart-server-formatter-command' instead."
   :type 'string
   :group 'dart-server
   :package-version '(dart-server . "0.1.0"))
 
-(defcustom dart-formatter-line-length 80
+(defcustom dart-server-formatter-line-length 80
   "The line length to use when running the Dart formatter."
   :type 'integer
   :group 'dart-server
   :package-version '(dart-server . "0.1.0"))
 
-(defcustom dart-format-on-save nil
+(defcustom dart-server-format-on-save nil
   "Whether to run the Dart formatter before saving."
   :type 'boolean
   :group 'dart-server
   :package-version '(dart-server . "0.1.0"))
 
-(defcustom dart-formatter-show-errors 'buffer
+(defcustom dart-server-formatter-show-errors 'buffer
   "Where to display Dart formatter error output.
 It can either be displayed in its own buffer, in the echo area, or not at all.
 
@@ -1307,39 +1307,39 @@ inside a `before-save-hook'."
           (const :tag "None" nil))
   :group 'dart-server)
 
-(defun dart-formatter-command ()
+(defun dart-server-formatter-command ()
   "The command for running the Dart formatter.
 
-This can be customized by setting `dart-formatter-command-override'."
-  (or dart-formatter-command-override
-      (when dart-sdk-path
-        (concat dart-sdk-path
+This can be customized by setting `dart-server-formatter-command-override'."
+  (or dart-server-formatter-command-override
+      (when dart-server-sdk-path
+        (concat dart-server-sdk-path
                 (file-name-as-directory "bin")
                 "dartfmt"))))
 
-(defvar dart--formatter-compilation-regexp
+(defvar dart-server--formatter-compilation-regexp
   '("^line \\([0-9]+\\), column \\([0-9]+\\) of \\([^ \n]+\\):" 3 1 2)
   "Regular expresion to match errors in the formatter's output.
 See `compilation-error-regexp-alist' for help on their format.")
 
 (add-to-list 'compilation-error-regexp-alist-alist
-             (cons 'dart-formatter dart--formatter-compilation-regexp))
-(add-to-list 'compilation-error-regexp-alist 'dart-formatter)
+             (cons 'dart-server-formatter dart-server--formatter-compilation-regexp))
+(add-to-list 'compilation-error-regexp-alist 'dart-server-formatter)
 
-(cl-defun dart-format ()
+(cl-defun dart-server-format ()
   "Format the current buffer using the Dart formatter.
 
-By default, this uses the formatter in `dart-sdk-path'. However,
+By default, this uses the formatter in `dart-server-sdk-path'. However,
 this can be overridden by customizing
-`dart-formatter-command-override'."
+`dart-server-formatter-command-override'."
   (interactive)
   (let* ((file (make-temp-file "format" nil ".dart"))
          (patch-buffer (get-buffer-create "*Dart formatter patch*"))
-         (error-buffer (when dart-formatter-show-errors
+         (error-buffer (when dart-server-formatter-show-errors
                          (get-buffer-create "*Dart formatter errors*")))
          (coding-system-for-read 'utf-8)
          (coding-system-for-write 'utf-8)
-         (args `("--line-length" ,(number-to-string dart-formatter-line-length)
+         (args `("--line-length" ,(number-to-string dart-server-formatter-line-length)
                  "--overwrite" ,file)))
     (unwind-protect
         (save-restriction
@@ -1351,26 +1351,26 @@ this can be overridden by customizing
               (erase-buffer)))
 
           (write-region nil nil file nil 'no-message)
-          (dart-info (format "%s %s" (dart-formatter-command) args))
+          (dart-server-info (format "%s %s" (dart-server-formatter-command) args))
 
-          (unless (zerop (apply #'call-process (dart-formatter-command) nil error-buffer nil args))
+          (unless (zerop (apply #'call-process (dart-server-formatter-command) nil error-buffer nil args))
             (message "Formatting failed")
             (when error-buffer
-              (dart--formatter-show-errors error-buffer file (buffer-file-name)))
-            (cl-return-from dart-format))
+              (dart-server--formatter-show-errors error-buffer file (buffer-file-name)))
+            (cl-return-from dart-server-format))
 
           ;; Apply the format as a diff so that only portions of the buffer that
           ;; actually change are marked as modified.
           (if (zerop (call-process-region (point-min) (point-max)
                                           "diff" nil patch-buffer nil "--rcs" "-" file))
               (message "Buffer is already formatted")
-            (dart--apply-rcs-patch patch-buffer)
+            (dart-server--apply-rcs-patch patch-buffer)
             (message "Formatted buffer"))
-          (when error-buffer (dart--kill-buffer-and-window error-buffer)))
+          (when error-buffer (dart-server--kill-buffer-and-window error-buffer)))
       (kill-buffer patch-buffer)
       (delete-file file))))
 
-(defun dart--apply-rcs-patch (patch-buffer)
+(defun dart-server--apply-rcs-patch (patch-buffer)
   "Apply an RCS diff from PATCH-BUFFER to the current buffer."
   (let ((target-buffer (current-buffer))
         ;; The relative offset between line numbers in the buffer and in patch.
@@ -1387,7 +1387,7 @@ this can be overridden by customizing
         (goto-char (point-min))
         (while (not (eobp))
           (unless (looking-at "^\\([ad]\\)\\([0-9]+\\) \\([0-9]+\\)")
-            (error "Invalid RCS patch or internal error in dart--apply-rcs-patch"))
+            (error "Invalid RCS patch or internal error in dart-server--apply-rcs-patch"))
 
           (forward-line)
           (let ((action (match-string 1))
@@ -1409,16 +1409,16 @@ this can be overridden by customizing
                 (goto-char (point-min))
                 (forward-line (- from line-offset 1))
                 (cl-incf line-offset len)
-                (dart--delete-whole-line len)))
+                (dart-server--delete-whole-line len)))
 
              (t
-              (error "Invalid RCS patch or internal error in dart--apply-rcs-patch")))))))))
+              (error "Invalid RCS patch or internal error in dart-server--apply-rcs-patch")))))))))
 
-(defun dart--formatter-show-errors (error-buffer temp-file real-file)
+(defun dart-server--formatter-show-errors (error-buffer temp-file real-file)
   "Display formatter errors in `error-buffer'.
 This replaces references to TEMP-FILE with REAL-FILE."
   (with-current-buffer error-buffer
-    (-let [echo (eq dart-formatter-show-errors 'echo)]
+    (-let [echo (eq dart-server-formatter-show-errors 'echo)]
       (goto-char (point-min))
       (-let [regexp (concat "\\(" (regexp-quote temp-file) "\\):")]
         (while (search-forward-regexp regexp nil t)
@@ -1427,7 +1427,7 @@ This replaces references to TEMP-FILE with REAL-FILE."
       (if echo
           (progn
             (message "%s" (buffer-string))
-            (dart--kill-buffer-and-window error-buffer))
+            (dart-server--kill-buffer-and-window error-buffer))
         (compilation-mode)
         (temp-buffer-window-show error-buffer)
         (select-window (get-buffer-window error-buffer))))))
