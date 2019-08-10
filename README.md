@@ -24,13 +24,13 @@
 
 ### General Configuration
 
-The `dart-sdk-path` variable can be set to tell Emacs where to find the Dart
+The `dart-server-sdk-path` variable can be set to tell Emacs where to find the Dart
 SDK. This is used to run the [Dart analysis server](#dart-analyzer) and the Dart
 formatter. By default, it's set by finding the `dart` executable on the system
 path.
 
 If you've installed `flutter` but not `dart`, you might try `(setq
-dart-sdk-path "/path/to/flutter/bin/cache/dart-sdk/")`.
+dart-server-sdk-path "/path/to/flutter/bin/cache/dart-sdk/")`.
 
 If you're on Windows, you will need to make sure that the `diff`
 executable is available to Emacs. One way to do this is install from
@@ -40,7 +40,7 @@ something like the following to your init file. `(setq exec-path
 
 
 Note that user code that wants to run Dart scripts can use the
-`dart-executable-path` function to locate the `dart` executable itself in the
+`dart-server-executable-path` function to locate the `dart` executable itself in the
 SDK's `bin/` directory.
 
 ## Dart Analyzer
@@ -50,7 +50,7 @@ analyzes your Dart code to figure out what every identifier and method call
 refers to. It provides all sorts of useful features that aren't possible when
 your code is treated as plain text.
 
-To enable analyzer support, add `(setq dart-enable-analysis-server t)` to your
+To enable analyzer support, add `(setq dart-server-enable-analysis-server t)` to your
 `.emacs` file.
 
 ### Error Checking
@@ -123,7 +123,7 @@ press `M-?` again to select the second parameter, and so on.
 If the analysis server isn't enabled for the current buffer, this will fall back
 to whatever command is assigned to `M-/` outside of Dart server (`dabbrev-expand`
 in vanilla Emacs). This will usually pick up any custom key bindings, but if it
-doesn't you can manually choose a fallback by setting the `dart-expand-fallback`
+doesn't you can manually choose a fallback by setting the `dart-server-expand-fallback`
 variable.
 
 ## Dart Formatter
@@ -138,18 +138,23 @@ current buffer.
 
 By default, `dart-server` will use the version of the formatter that's bundled
 with the Dart SDK. However, you can customize this by setting
-`dart-formatter-command-override`. Note that if you want to access the formatter
-command from Elisp, you should call the `dart-formatter-command` function
+`dart-server-formatter-command-override`. Note that if you want to access the formatter
+command from Elisp, you should call the `dart-server-formatter-command` function
 instead.
 
 When formatting fails, usually because the buffer's Dart code couldn't be
 parsed, a buffer listing the errors will pop up by default. This behavior can be
-customized by setting `dart-formatter-show-errors`. It has three valid values:
+customized by setting `dart-server-formatter-show-errors`. It has three valid values:
 
 * `'buffer` is the default, and pops up a buffer listing the errors.
 * `'echo` shows the errors temporarily in the echo area at the bottom of the frame.
 * `nil` doesn't show the errors at all.
 
-If you set the `dart-format-on-save` variable to `t`, the formatter will be run
+If you set the `dart-server-format-on-save` variable to `t`, the formatter will be run
 automatically before you save any Dart buffer. This can be helpful when working
 on codebases where formatting is required.
+
+
+<!-- Local Variables: -->
+<!-- fill-column: 80 -->
+<!-- End: -->
