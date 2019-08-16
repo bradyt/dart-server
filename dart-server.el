@@ -304,7 +304,8 @@ Returns nil if `dart-server-sdk-path' is nil."
     (define-key map (kbd "C-c C-t") 'dart-server-find-top-level-decls)
     (define-key map (kbd "C-c C-o") 'dart-server-format)
     (define-key map (kbd "M-/") 'dart-server-expand)
-    (define-key map (kbd "M-?") 'dart-server-expand-parameters))
+    (define-key map (kbd "M-?") 'dart-server-expand-parameters)
+    map)
   "Keymap used in dart-server buffers.")
 
 
@@ -1262,7 +1263,8 @@ Also removes this function from `post-command-hook'."
     (define-key map (kbd "<mouse-2>") nil)
     (define-key map (kbd "C-c C-b") nil)
     (define-key map (kbd "C-c C-c") nil)
-    (define-key map (kbd "C-c C-f") nil))
+    (define-key map (kbd "C-c C-f") nil)
+    map)
   "Keymap used in Dart popup buffers.")
 
 (defun dart-server-do-it-again ()
