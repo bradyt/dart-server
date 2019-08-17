@@ -1372,6 +1372,11 @@ this can be overridden by customizing
       (kill-buffer patch-buffer)
       (delete-file file))))
 
+(defun dart-server--do-format-on-save ()
+  "Format the buffer if `dart-server-format-on-save' is non-nil."
+  (when dart-server-format-on-save
+    (dart-server-format)))
+
 (defun dart-server--apply-rcs-patch (patch-buffer)
   "Apply an RCS diff from PATCH-BUFFER to the current buffer."
   (let ((target-buffer (current-buffer))
@@ -1438,7 +1443,10 @@ This replaces references to TEMP-FILE with REAL-FILE."
 ;;; Initialization
 
 ;;;###autoload
-(define-minor-mode dart-server nil)
+(define-minor-mode dart-server nil nil nil nil
+  (if dart-server
+      (add-hook 'before-save-hook #'dart-server--do-format-on-save nil t)
+    (remove-hook 'before-save-hook #'dart-server--do-format-on-save t)))
 
 (provide 'dart-server)
 
