@@ -1,11 +1,23 @@
 dist: trusty
 sudo: false
 
+os:
+  - linux
+  - windows
+
 language: dart
 
 dart:
   - stable
   - dev
+
+matrix:
+  include:
+    - os: linux
+    - os: windows
+      language: generic
+      before_install:
+        - choco install dart
 
 env:
   - EVM_EMACS=emacs-24.4-travis
