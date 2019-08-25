@@ -1,4 +1,4 @@
-all: package-lint dart-server.elc
+all: package-lint dart-server.elc test
 
 .cask:
 	cask install
