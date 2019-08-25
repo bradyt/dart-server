@@ -75,10 +75,10 @@ C-c ?` instead to open the information in a new window to read at your leisure.
 
 ### Navigation
 
-When your cursor is on an identifier, you can press `C-c C-g` to go to the exact
-location that identifier was originally defined. This can even take you to the
-Dart SDK's sources, or to packages that your library imports. Be careful when
-you're there, though: any edits may corrupt your package cache!
+When your cursor is on an identifier, you can press ~~`C-c C-g`~~ to go to the
+exact location that identifier was originally defined. This can even take you to
+the Dart SDK's sources, or to packages that your library imports. Be careful
+when you're there, though: any edits may corrupt your package cache!
 
 ### Search
 
