@@ -14,6 +14,14 @@ matrix:
     #   before_install:
     #     - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh
     #     - evm install $EVM_EMACS --use --skip
+    # env:
+    #   - EVM_EMACS=emacs-24.4-travis
+    #   - EVM_EMACS=emacs-24.5-travis
+    #   - EVM_EMACS=emacs-25.1-travis
+    #   - EVM_EMACS=emacs-25.2-travis
+    #   - EVM_EMACS=emacs-25.3-travis
+    #   - EVM_EMACS=emacs-26.1-travis
+    #   - EVM_EMACS=emacs-git-snapshot-travis
     - os: windows
       language: python
       before_install:
@@ -21,16 +29,6 @@ matrix:
         - export "PATH=$PATH:$USERPROFILE\.cask\bin"
         - choco install dart
         - choco install emacs
-
-env:
-  - EVM_EMACS=emacs-24.4-travis
-  - EVM_EMACS=emacs-24.5-travis
-  - EVM_EMACS=emacs-25.1-travis
-  - EVM_EMACS=emacs-25.2-travis
-  - EVM_EMACS=emacs-25.3-travis
-  - EVM_EMACS=emacs-26.1-travis
-  - EVM_EMACS=emacs-git-snapshot-travis
-
 
 script:
   - make
