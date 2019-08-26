@@ -25,8 +25,8 @@ matrix:
       language: bash
       python: 2.7
       before_install:
-        - choco install python2
         - choco install emacs
+        - choco install python2
         - curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
         - export "PATH=$PATH:$USERPROFILE\.cask\bin"
         - choco install dart
