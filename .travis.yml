@@ -32,7 +32,10 @@ matrix:
         - export "PATH=$PATH:$USERPROFILE\.cask\bin"
 
 script:
-  - make
+  - make install
+  - make package-lint
+  - make dart-server.elc
+  - make test
 
 notifications:
   email: false
