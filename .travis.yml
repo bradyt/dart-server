@@ -1,3 +1,6 @@
+os: windows
+language: minimal
+
 matrix:
   include:
     # - os: linux
