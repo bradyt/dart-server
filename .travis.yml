@@ -23,7 +23,6 @@ matrix:
     #   - EVM_EMACS=emacs-git-snapshot-travis
     - os: windows
       language: bash
-      python: 2.7
       before_install:
         - choco install emacs
         - choco install python2
