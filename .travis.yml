@@ -19,9 +19,10 @@ matrix:
     #   - EVM_EMACS=emacs-26.1-travis
     #   - EVM_EMACS=emacs-git-snapshot-travis
     - os: windows
-      language: python
+      language: minimal
       python: 2.7
       before_install:
+        - choco install python2
         - curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
         - export "PATH=$PATH:$USERPROFILE\.cask\bin"
         - choco install dart
