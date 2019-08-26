@@ -4,17 +4,21 @@ os:
 
 matrix:
   include:
-    - os: linux
-      dist: trusty
-      sudo: false
-      language: dart
-      dart:
-        - stable
-        - dev
+    # - os: linux
+    #   dist: trusty
+    #   sudo: false
+    #   language: dart
+    #   dart:
+    #     - stable
+    #     - dev
+    #   before_install:
+    #     - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh
+    #     - evm install $EVM_EMACS --use --skip
     - os: windows
       language: generic
       before_install:
         - choco install dart
+        - choco install emacs
 
 env:
   - EVM_EMACS=emacs-24.4-travis
@@ -25,10 +29,6 @@ env:
   - EVM_EMACS=emacs-26.1-travis
   - EVM_EMACS=emacs-git-snapshot-travis
 
-before_install:
-
-  - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh
-  - evm install $EVM_EMACS --use --skip
 
 script:
   - make
