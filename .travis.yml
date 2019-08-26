@@ -1,5 +1,5 @@
 os: windows
-language: minimal
+language: bash
 
 matrix:
   include:
@@ -22,7 +22,7 @@ matrix:
     #   - EVM_EMACS=emacs-26.1-travis
     #   - EVM_EMACS=emacs-git-snapshot-travis
     - os: windows
-      language: minimal
+      language: bash
       python: 2.7
       before_install:
         - choco install python2
