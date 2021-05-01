@@ -84,6 +84,20 @@
 
 ;;; Utility functions and macros
 
+(defun dart-server-log (msg)
+  "Logs MSG to the dart log."
+  (let* ((log-buffer (get-buffer-create "*dart-server-debug*"))
+         (iso-format-string "%Y-%m-%dT%T%z")
+         (timestamp-and-log-string
+          (format-time-string iso-format-string (current-time))))
+    (with-current-buffer log-buffer
+      (goto-char (point-max))
+      (insert "\n\n\n")
+      (insert (concat timestamp-and-log-string
+                      "\n"
+                      msg))
+      (insert "\n"))))
+
 (defun dart-server-beginning-of-statement ()
   "Moves to the beginning of a Dart statement.
 
@@ -374,20 +388,6 @@ object which can be passed to `dart-server--analysis-server-unsubscribe'.")
 (defun dart-server-info (msg)
   "Logs MSG to the dart log if `dart-server-debug' is non-nil."
   (when dart-server-debug (dart-server-log msg)))
-
-(defun dart-server-log (msg)
-  "Logs MSG to the dart log."
-  (let* ((log-buffer (get-buffer-create "*dart-server-debug*"))
-         (iso-format-string "%Y-%m-%dT%T%z")
-         (timestamp-and-log-string
-          (format-time-string iso-format-string (current-time))))
-    (with-current-buffer log-buffer
-      (goto-char (point-max))
-      (insert "\n\n\n")
-      (insert (concat timestamp-and-log-string
-                      "\n"
-                      msg))
-      (insert "\n"))))
 
 (defun dart-server--normalize-path (path)
   (if (equal system-type 'windows-nt)
